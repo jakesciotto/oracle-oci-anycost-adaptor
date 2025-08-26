@@ -1,0 +1,7 @@
+lineitem/type,resource/service,resource/id,time/usage_start,cost/cost,cost/discounted_cost
+Usage,Compute,instance-0000,2024-09-16T13:00:00Z,12,8
+Usage,Compute,instance-0001,2024-09-16T13:00:00Z,20,16
+Usage,Compute,instance-0002,2024-09-16T13:00:00Z,15.3,11.3
+CommittedUsePurchase,CommittedUse,commit-111-222-333,2024-09-01T00:00:00Z,90,90
+Discount,SpecialCompute,discount-01010101,2024-09-16T13:00:00Z,-12,-12
+Discount,MVPDiscount,discount-aaa-12345,2024-09-01T00:00:00Z,-20,-20
