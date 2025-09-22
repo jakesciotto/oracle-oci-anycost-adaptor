@@ -1,4 +1,0 @@
-sku,instance_id,usage_date,cost,discount
-Compute,0000,2024-09-16T13:00:00Z,12,-4
-Compute,0001,2024-09-16T13:00:00Z,20,-4
-Compute,0002,2024-09-16T13:00:00Z,15.3,-4

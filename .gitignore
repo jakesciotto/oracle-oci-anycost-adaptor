@@ -135,3 +135,15 @@ dmypy.json
 # IDE Cruft
 .vscode/
 .idea/
+
+# OCI Security Files
+env/
+*.pem
+*.crt
+*.key
+fingerprint.txt
+oci_config_local.py
+
+# Test output files
+tests/*.csv
+oci_cbf_output.csv

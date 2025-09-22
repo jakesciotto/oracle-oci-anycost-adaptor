@@ -1,22 +1,28 @@
-# AnyCost Stream Example
+# Oracle Cloud Infrastructure (OCI) AnyCost Stream Adaptor
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE-OF-CONDUCT.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 ![GitHub release](https://img.shields.io/github/release/cloudzero/template-cloudzero-open-source.svg)
 
-This repository contains a Python script that serves as an example of an Adaptor for an [AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started) connection. The script transforms cost data into the [Common Bill Format (CBF)](https://docs.cloudzero.com/docs/anycost-common-bill-format-cbf) and sends the CBF data to the [CloudZero REST API](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop).
+This repository contains a production-ready Oracle Cloud Infrastructure (OCI) Adaptor for [AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started) connections. The adaptor fetches cost data directly from the OCI Usage API, transforms it into the [Common Bill Format (CBF)](https://docs.cloudzero.com/docs/anycost-common-bill-format-cbf), and sends the CBF data to the [CloudZero REST API](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop).
 
-You can use this Adaptor as a model for structuring your own AnyCost Stream Adaptor, modifying it to fit your use case.
+**Key Features:**
+- Direct integration with OCI Usage API (no CSV files required)
+- Secure credential management using environment variables  
+- Comprehensive error handling and retry logic
+- Support for single month and batch processing
+- Automatic data transformation from OCI format to CBF
 
 
 ## Table of Contents
 
 - [Documentation](#documentation)
-- [Installation](#installation)
+- [Installation](#installation)  
+- [OCI Configuration](#oci-configuration)
 - [Getting Started](#getting-started)
-- [Running the Script](#running-the-script)
+- [Running the OCI Adaptor](#running-the-oci-adaptor)
 - [Usage Examples](#usage-examples)
-- [Contributing](#contributing)
+- [Testing](#testing)
 - [Support + Feedback](#support--feedback)
 - [Vulnerability Reporting](#vulnerability-reporting)
 - [What is CloudZero?](#what-is-cloudzero)
@@ -24,6 +30,7 @@ You can use this Adaptor as a model for structuring your own AnyCost Stream Adap
 
 ## Documentation
 
+**CloudZero Documentation:**
 - [Getting Started with AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started)
 - [Creating AnyCost Custom Adaptors](https://docs.cloudzero.com/docs/anycost-custom-adaptors)
 - [Sending AnyCost Stream Data to CloudZero](https://docs.cloudzero.com/docs/anycost-send-stream-data)
@@ -31,13 +38,18 @@ You can use this Adaptor as a model for structuring your own AnyCost Stream Adap
 - [CloudZero API Authorization](https://docs.cloudzero.com/reference/authorization)
 - [AnyCost Stream API](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop)
 
+**Oracle OCI Documentation:**
+- [OCI Usage API](https://docs.oracle.com/en-us/iaas/api/#/en/usage/20200107/)
+- [OCI Python SDK](https://oracle-cloud-infrastructure-python-sdk.readthedocs.io/en/latest/api/usage_api.html)
+- [OCI API Key Authentication](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm)
+
 ## Installation
 
 ### Prerequisites
 
 - Python 3.9 or newer
 
-### Install Dependency
+### Install Dependencies
 
 Consider using the [venv](https://docs.python.org/3/library/venv.html) system module to create a virtual environment:
 
@@ -51,10 +63,52 @@ Activate the virtual environment, if you chose to create it:
 source venv/bin/activate
 ```
 
-Install the required dependency, which is the Python [requests](https://requests.readthedocs.io/en/latest/) module:
+Install the required dependencies:
 
 ```bash
-pip install requests
+pip install -r requirements.txt
+```
+
+The main dependencies are:
+- `requests>=2.28.0` - For CloudZero API calls
+- `oci>=2.100.0` - Oracle Cloud Infrastructure Python SDK
+
+## OCI Configuration
+
+### 1. Set up OCI API Key Authentication
+
+You need an OCI API key for authentication. If you already have the key files in the `env/` directory, proceed to step 2.
+
+### 2. Configure Environment Variables
+
+The environment configuration is stored in the `env/` directory. Edit `env/.env` with your actual values:
+
+```bash
+# OCI User OCID (Oracle Cloud ID for the user)
+OCI_USER_OCID=ocid1.user.oc1..aaaaaaaa...
+
+# OCI Tenancy OCID (Oracle Cloud ID for the tenancy/organization)  
+OCI_TENANCY_OCID=ocid1.tenancy.oc1..aaaaaaaa...
+
+# OCI API Key Fingerprint (from your env/fingerprint.txt)
+OCI_FINGERPRINT=xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
+
+# Path to your OCI private key file
+OCI_PRIVATE_KEY_PATH=./env/tech.aws-governance.team+oracle-cloud@shutterstock.com-2025-09-15T19_28_49.886Z.pem.crt
+
+# OCI Region
+OCI_REGION=us-ashburn-1
+
+# Optional: Private key passphrase (if your key is encrypted)
+# OCI_PRIVATE_KEY_PASSPHRASE=your_passphrase
+```
+
+### 3. Test Your Connection
+
+Test your OCI configuration:
+
+```bash
+python oci_anycost_adaptor.py --test-connection
 ```
 
 ## Getting Started
@@ -120,42 +174,58 @@ This example Adaptor takes the following actions:
 
 The final step is for the Adaptor to send the CBF data to the AnyCost Stream connection using CloudZero's [/v2/connections/billing/anycost/{connection_id}/billing_drops](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop) API.
 
-## Running the Script
+## Running the OCI Adaptor  
 
-The Python script processes cloud billing data and uploads it to an AnyCost Stream connection. You can specify input and output file paths as command-line arguments. Below are the steps and usage instructions:
+The OCI Adaptor fetches billing data directly from Oracle Cloud Infrastructure and uploads it to an AnyCost Stream connection. Below are the steps and usage instructions:
 
 ### Prerequisites
 
 - Ensure you have Python 3.9 or newer installed.
-- Prepare your CSV files for usage data, purchase commitments, and discounts.
+- Complete [OCI Configuration](#oci-configuration) with valid API credentials.
 - Create an [AnyCost Stream connection](https://docs.cloudzero.com/docs/anycost-stream-getting-started#step-1-register-the-connection-in-the-ui).
 - Have your [CloudZero API key](https://app.cloudzero.com/organization/api-keys) ready for uploading data.
 
 ### Usage
 
-Run the script from the command line with the following syntax:
+Run the OCI adaptor from the command line:
 
 ```bash
-python anycost_example.py --usage <path_to_usage_csv> --commitments <path_to_commitments_csv> --discounts <path_to_discounts_csv> --output <path_to_output_csv>
+python oci_anycost_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
 ```
 
 ### Arguments
 
-- `--usage`: Path to the CSV file containing usage data. This file should include columns like `cost`, `discount`, `sku`, `instance_id`, and `usage_date`.
-- `--commitments` (Optional): Path to the CSV file containing purchase commitments data. This file should include columns like `commitment_id`, `commitment_date`, and `cost`.
-- `--discounts` (Optional): Path to the CSV file containing discounts data. This file should include columns like `discount_type`, `discount_id`, `usage_date`, and `discount`.
-- `--output` (Optional): Path to the output CSV file where transformed CBF data will be saved. Defaults to `cbf_output.csv`
+- `--month`: Single month to process (YYYY-MM format, e.g., 2024-08)
+- `--months`: Multiple months - comma-separated (2024-06,2024-07) or range (2024-06:2024-08) 
+- `--test-connection`: Test OCI connection and exit (no data processing)
+- `--output`: Path to output CBF CSV file (default: oci_cbf_output.csv)
+- `--no-upload`: Skip AnyCost Stream upload prompt
 
-### Example
+### Examples
 
-The minimum parameter set is `--usage`. With only `--usage` specified, the script will process the usage data, skip discounts and purchase commitments, and save the CBF to an output file called `cbf_output.csv` in the current working directory.
+**Process single month:**
 ```bash
-python anycost_example.py --usage example_cloud_provider_data/cloud_usage.csv
+python oci_anycost_adaptor.py --month 2024-08
 ```
 
-With `--commitments`, `--discounts`, and `--output` specified, the script will process all three data types and save the output to the file specified in `--output`.
+**Process multiple months (comma-separated):**
 ```bash
-python anycost_example.py --usage example_cloud_provider_data/cloud_usage.csv --commitments example_cloud_provider_data/cloud_purchase_commitments.csv --discounts example_cloud_provider_data/cloud_discounts.csv --output cbf/cloud_cbf.csv
+python oci_anycost_adaptor.py --months 2024-06,2024-07,2024-08
+```
+
+**Process month range:**
+```bash
+python oci_anycost_adaptor.py --months 2024-06:2024-08
+```
+
+**Test connection only:**
+```bash
+python oci_anycost_adaptor.py --test-connection
+```
+
+**Process data without upload prompt:**
+```bash
+python oci_anycost_adaptor.py --month 2024-08 --no-upload --output my_oci_data.csv
 ```
 
 ### Uploading Data
@@ -319,9 +389,6 @@ This script can be easily adapted for different cloud providers by modifying the
 **Issue: "Connection timeout"**
 - Solution: Increase timeout in upload function or implement retry logic
 
-## Contributing
-
-We appreciate feedback and contributions to this repo! Before you get started, see [this repo's contribution guide](CONTRIBUTING.md).
 
 ## Support + Feedback
 
