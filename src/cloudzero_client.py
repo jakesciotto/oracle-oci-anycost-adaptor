@@ -25,6 +25,49 @@ class CloudZeroClient:
         if not self.connection_id:
             raise ValueError("CLOUDZERO_CONNECTION_ID environment variable is required")
     
+    def _calculate_payload_size(self, payload: Dict[str, Any]) -> int:
+        """Calculate the size of a JSON payload in bytes."""
+        return len(json.dumps(payload, separators=(',', ':')).encode('utf-8'))
+    
+    def _split_into_batches(self, cbf_rows: List[Dict[str, str]], max_size_mb: float = 4.5) -> List[List[Dict[str, str]]]:
+        """Split CBF rows into batches under the size limit.
+        
+        Args:
+            cbf_rows: List of CBF records
+            max_size_mb: Maximum size per batch in MB (default 4.5MB for safety)
+            
+        Returns:
+            List of batches, each batch is a list of CBF rows
+        """
+        max_size_bytes = int(max_size_mb * 1024 * 1024)
+        batches = []
+        current_batch = []
+        current_size = 0
+        
+        # Calculate base payload overhead (month, operation, etc)
+        base_payload = {"month": "2025-01", "operation": "replace_drop", "data": []}
+        base_size = self._calculate_payload_size(base_payload)
+        
+        for row in cbf_rows:
+            # Estimate row size (add some padding for JSON formatting)
+            row_size = len(json.dumps(row, separators=(',', ':')).encode('utf-8')) + 10
+            
+            # Check if adding this row would exceed the limit
+            if current_size + row_size + base_size > max_size_bytes and current_batch:
+                # Save current batch and start a new one
+                batches.append(current_batch)
+                current_batch = [row]
+                current_size = row_size
+            else:
+                current_batch.append(row)
+                current_size += row_size
+        
+        # Add the last batch if it has data
+        if current_batch:
+            batches.append(current_batch)
+        
+        return batches
+
     def upload_billing_data(self, cbf_rows: List[Dict[str, str]], 
                           month: str, 
                           operation: str = "replace_drop",
@@ -61,32 +104,87 @@ class CloudZeroClient:
             "Content-Type": "application/json"
         }
         
-        payload = {
+        # Check if we need to batch the data
+        test_payload = {
             "month": month,
             "operation": operation,
             "data": cbf_rows
         }
+        payload_size = self._calculate_payload_size(test_payload)
+        max_size_bytes = 5 * 1024 * 1024  # 5MB limit
         
         print(f"📤 Preparing to upload {len(cbf_rows)} records to CloudZero")
         print(f"   Connection ID: {self.connection_id}")
         print(f"   Month: {month}")
         print(f"   Operation: {operation}")
         print(f"   Endpoint: {url}")
+        print(f"   Payload size: {payload_size} bytes ({payload_size / (1024*1024):.1f}MB)")
         
-        if dry_run:
-            print(f"🔍 DRY RUN: Request prepared but not sent")
-            print(f"   Headers: {headers}")
-            print(f"   Payload size: {len(json.dumps(payload))} bytes")
-            return {
-                "dry_run": True,
-                "url": url,
-                "headers": headers,
-                "payload_records": len(cbf_rows),
-                "status": "prepared"
-            }
+        if payload_size > max_size_bytes:
+            print(f"⚠️  Payload exceeds 5MB limit - splitting into batches...")
+            batches = self._split_into_batches(cbf_rows)
+            print(f"   Split into {len(batches)} batches")
+            
+            if dry_run:
+                print(f"🔍 DRY RUN: {len(batches)} batch requests prepared but not sent")
+                for i, batch in enumerate(batches, 1):
+                    batch_payload = {"month": month, "operation": operation, "data": batch}
+                    batch_size = self._calculate_payload_size(batch_payload)
+                    print(f"   Batch {i}: {len(batch)} records, {batch_size} bytes ({batch_size / (1024*1024):.1f}MB)")
+                return {
+                    "dry_run": True,
+                    "url": url,
+                    "headers": headers,
+                    "payload_records": len(cbf_rows),
+                    "batches": len(batches),
+                    "status": "prepared_batched"
+                }
+            else:
+                # Upload each batch
+                results = []
+                for i, batch in enumerate(batches, 1):
+                    print(f"\n🚀 Uploading batch {i}/{len(batches)} ({len(batch)} records)...")
+                    result = self._upload_single_batch(batch, month, operation, url, headers)
+                    results.append(result)
+                    if not result["success"]:
+                        print(f"❌ Batch {i} failed, stopping upload")
+                        break
+                
+                total_uploaded = sum(r["records_uploaded"] for r in results if r["success"])
+                success_count = sum(1 for r in results if r["success"])
+                
+                return {
+                    "success": success_count == len(batches),
+                    "batches_uploaded": success_count,
+                    "total_batches": len(batches),
+                    "records_uploaded": total_uploaded,
+                    "batch_results": results
+                }
+        else:
+            # Single payload upload
+            if dry_run:
+                print(f"🔍 DRY RUN: Request prepared but not sent")
+                print(f"   Headers: {headers}")
+                return {
+                    "dry_run": True,
+                    "url": url,
+                    "headers": headers,
+                    "payload_records": len(cbf_rows),
+                    "status": "prepared"
+                }
+            else:
+                return self._upload_single_batch(cbf_rows, month, operation, url, headers)
+        
+    def _upload_single_batch(self, cbf_rows: List[Dict[str, str]], month: str, operation: str, url: str, headers: Dict[str, str]) -> Dict[str, Any]:
+        """Upload a single batch of CBF data."""
+        payload = {
+            "month": month,
+            "operation": operation,
+            "data": cbf_rows
+        }
         
         try:
-            print(f"🚀 Sending request to CloudZero...")
+            print(f"🚀 Sending {len(cbf_rows)} records to CloudZero...")
             response = requests.post(
                 url,
                 headers=headers,
@@ -112,7 +210,11 @@ class CloudZeroClient:
         except requests.exceptions.Timeout:
             error_msg = f"Request timed out after 60 seconds"
             print(f"❌ {error_msg}")
-            raise requests.RequestException(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "records_uploaded": 0
+            }
             
         except requests.exceptions.HTTPError as e:
             error_msg = f"HTTP error: {e}"
@@ -121,12 +223,21 @@ class CloudZeroClient:
                 print(f"❌ HTTP {response.status_code}: {error_detail}")
             except:
                 print(f"❌ HTTP {response.status_code}: {response.text}")
-            raise
+            return {
+                "success": False,
+                "error": error_msg,
+                "status_code": response.status_code,
+                "records_uploaded": 0
+            }
             
         except requests.exceptions.RequestException as e:
             error_msg = f"Request failed: {e}"
             print(f"❌ {error_msg}")
-            raise
+            return {
+                "success": False,
+                "error": error_msg,
+                "records_uploaded": 0
+            }
     
     def test_connection(self) -> bool:
         """

@@ -1,459 +1,83 @@
-# Oracle Cloud Infrastructure (OCI) AnyCost Stream Adaptor
+# Oracle OCI to CloudZero Cost Sync
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE-OF-CONDUCT.md)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-![GitHub release](https://img.shields.io/github/release/cloudzero/template-cloudzero-open-source.svg)
-
-This repository contains a production-ready Oracle Cloud Infrastructure (OCI) Adaptor for [AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started) connections. The adaptor fetches cost data directly from the OCI Usage API, transforms it into the [Common Bill Format (CBF)](https://docs.cloudzero.com/docs/anycost-common-bill-format-cbf), and sends the CBF data to the [CloudZero REST API](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop).
-
-**Key Features:**
-- Direct integration with OCI Usage API (no CSV files required)
-- Secure credential management using environment variables  
-- Comprehensive error handling and retry logic
-- Support for single month and batch processing
-- Automatic data transformation from OCI format to CBF
-- Saves raw OCI data to `input/` folder for testing and validation
-- Saves transformed CBF data to `output/` folder 
-- Clean project structure with organized `src/`, `env/`, `tests/`, `input/`, and `output/` directories
-
-
-## Table of Contents
-
-- [Documentation](#documentation)
-- [Installation](#installation)  
-- [OCI Configuration](#oci-configuration)
-- [Getting Started](#getting-started)
-- [Daily Automation](#daily-automation)
-- [Running the OCI Adaptor](#running-the-oci-adaptor)
-- [Usage Examples](#usage-examples)
-- [Testing](#testing)
-- [Support + Feedback](#support--feedback)
-- [Vulnerability Reporting](#vulnerability-reporting)
-- [What is CloudZero?](#what-is-cloudzero)
-- [License](#license)
-
-## Documentation
-
-**CloudZero Documentation:**
-- [Getting Started with AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started)
-- [Creating AnyCost Custom Adaptors](https://docs.cloudzero.com/docs/anycost-custom-adaptors)
-- [Sending AnyCost Stream Data to CloudZero](https://docs.cloudzero.com/docs/anycost-send-stream-data)
-- [CloudZero Common Bill Format](https://docs.cloudzero.com/docs/anycost-common-bill-format-cbf)
-- [CloudZero API Authorization](https://docs.cloudzero.com/reference/authorization)
-- [AnyCost Stream API](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop)
-
-**Oracle OCI Documentation:**
-- [OCI Usage API](https://docs.oracle.com/en-us/iaas/api/#/en/usage/20200107/)
-- [OCI Python SDK](https://oracle-cloud-infrastructure-python-sdk.readthedocs.io/en/latest/api/usage_api.html)
-- [OCI API Key Authentication](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm)
+Fetches OCI usage data and uploads it to CloudZero AnyCost Stream.
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.9 or newer
-
-### Install Dependencies
-
-Consider using the [venv](https://docs.python.org/3/library/venv.html) system module to create a virtual environment:
-
 ```bash
 python3 -m venv venv
-```
-
-Activate the virtual environment, if you chose to create it:
-
-```bash
 source venv/bin/activate
-```
-
-Install the required dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-The main dependencies are:
-- `requests>=2.28.0` - For CloudZero API calls
-- `oci>=2.100.0` - Oracle Cloud Infrastructure Python SDK
+## Configuration
 
-## OCI Configuration
-
-### 1. Set up OCI API Key Authentication
-
-You need an OCI API key for authentication. If you already have the key files in the `env/` directory, proceed to step 2.
-
-### 2. Configure Environment Variables
-
-The environment configuration is stored in the `env/` directory. Edit `env/.env` with your actual values:
-
+1. **Edit `env/.env`** with your OCI and CloudZero credentials:
 ```bash
-# OCI User OCID (Oracle Cloud ID for the user)
+# OCI Configuration
 OCI_USER_OCID=ocid1.user.oc1..aaaaaaaa...
-
-# OCI Tenancy OCID (Oracle Cloud ID for the tenancy/organization)  
 OCI_TENANCY_OCID=ocid1.tenancy.oc1..aaaaaaaa...
-
-# OCI API Key Fingerprint (from your env/fingerprint.txt)
 OCI_FINGERPRINT=xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx
-
-# Path to your OCI private key file
-OCI_PRIVATE_KEY_PATH=./env/tech.aws-governance.team+oracle-cloud@shutterstock.com-2025-09-15T19_28_49.886Z.pem.crt
-
-# OCI Region
+OCI_PRIVATE_KEY_PATH=./env/your-key-file.pem
 OCI_REGION=us-ashburn-1
 
-# Optional: Private key passphrase (if your key is encrypted)
-# OCI_PRIVATE_KEY_PASSPHRASE=your_passphrase
+# CloudZero Configuration  
+CLOUDZERO_API_KEY=your-api-key
+CLOUDZERO_CONNECTION_ID=your-connection-id
+CLOUDZERO_API_URL=https://api.cloudzero.com
 ```
 
-### 3. Test Your Connection
-
-Test your OCI configuration:
-
+2. **Test connection**:
 ```bash
 python run_oci_adaptor.py --test-connection
 ```
 
-## Getting Started
+## Usage
 
-An [AnyCost Stream connection](https://docs.cloudzero.com/docs/anycost-stream-getting-started) automates the flow of cost data into CloudZero by allowing you to send data from _any_ cost source to the CloudZero REST API.
-
-An [AnyCost Stream Adaptor](https://docs.cloudzero.com/docs/anycost-custom-adaptors) is the code that queries data from the provider, transforms it to fit the required format, and sends the transformed data to CloudZero.
-
-### Quick Start for New Users
-
-1. **Prerequisites**: Ensure you have Python 3.9+ installed and access to your cost data in CSV format
-2. **Setup**: Clone this repository and install dependencies ([Installation](#installation))
-3. **Prepare Data**: Format your CSV files or use the provided examples
-4. **Run Script**: Execute with your data files and follow the interactive prompts
-5. **Upload**: Choose single month or batch processing to upload to CloudZero
-
-### Three Core Steps
-
-An AnyCost Stream Adaptor typically performs three actions:
-
-1. [Retrieve data from a cloud provider for a billing month.](#step-1-retrieve-cost-data-from-cloud-provider)
-2. [Transform the data into the Common Bill Format (CBF).](#step-2-transform-cost-data-to-cbf)
-3. [Send the CBF data to the CloudZero API.](#step-3-send-the-cbf-data-to-cloudzero)
-
-You can write an Adaptor in any language, but this example uses Python and can be easily customized for different cloud providers.
-
-### Step 1: Retrieve Cost Data From Cloud Provider
-
-Your Adaptor should start by retrieving cost data from your cloud provider. This step varies by provider:
-
-**Common Data Sources:**
-- **AWS**: Cost and Usage Reports (CUR), billing CSV exports
-- **Azure**: Cost Management exports, billing data APIs
-- **GCP**: Billing export to BigQuery, Cloud Billing API
-- **Other Clouds**: Billing APIs, cost management dashboards, CSV exports
-
-**For This Example:**
-Because every provider makes cost data available differently, this example uses three sample CSV files:
-
-- `cloud_usage.csv`: Resource usage and compute costs
-- `cloud_purchase_commitments.csv`: Reserved instances, savings plans
-- `cloud_discounts.csv`: Volume discounts, credits, promotions
-
-**Customizing for Your Provider:**
-To adapt this script for your cloud provider:
-1. Replace the CSV reading logic with API calls to your provider
-2. Modify the data processing functions to match your provider's data structure
-3. Update the column mappings in the transformation functions
-
-See [Customization Guide](#customizing-for-different-cloud-providers) below for detailed instructions.
-
-### Step 2: Transform Cost Data to CBF
-
-The next step is for the Adaptor to remap the existing cost data to the [Common Bill Format (CBF)](https://docs.cloudzero.com/docs/anycost-common-bill-format-cbf). Conforming to a standard format allows CloudZero to process cost data from any source.
-
-This example Adaptor takes the following actions:
-
-- Reads the data from each of the three sample CSV files.
-- Maps each CSV's data to the appropriate CBF data type.
-- Combines the CBF data into a single CSV.
-
-### Step 3: Send the CBF Data to CloudZero
-
-The final step is for the Adaptor to send the CBF data to the AnyCost Stream connection using CloudZero's [/v2/connections/billing/anycost/{connection_id}/billing_drops](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop) API.
-
-## Daily Automation
-
-For production environments, use the simplified daily automation script:
-
-### Quick Start for Daily Sync
-
+### Daily Sync (Recommended)
 ```bash
-# Run daily sync (processes yesterday's data automatically)
+# Run daily sync
 ./daily_sync.py
 
-# Test the setup (dry run)
+# Test before running (dry run)
 ./daily_sync.py --test
-```
 
-### Set Up Automated Daily Runs
-
-Add to your crontab for daily execution at 8 AM:
-```bash
-crontab -e
-# Add this line:
+# Set up daily cron job
 0 8 * * * cd /path/to/oracle-oci-anycost-adaptor && ./daily_sync.py
 ```
 
-The daily sync script automatically:
-- Fetches OCI usage data for the current month
-- Transforms it to CBF format 
-- Uploads to CloudZero AnyCost Stream
-- Saves data to `output/oci_cbf_output.csv` for validation
-
-## Running the OCI Adaptor  
-
-The OCI Adaptor provides two main workflows:
-
-### 1. Direct OCI API Integration
-Fetches billing data directly from Oracle Cloud Infrastructure Usage API and transforms it to CBF format:
-
-### 2. CSV Processing Workflow  
-Processes downloaded OCI CSV files and converts them to CBF format (no API keys required):
-
-#### Prerequisites for Direct API Integration
-
-- Complete [OCI Configuration](#oci-configuration) with valid API credentials
-- Have your [CloudZero API key](https://app.cloudzero.com/organization/api-keys) ready for uploading data
-- Create an [AnyCost Stream connection](https://docs.cloudzero.com/docs/anycost-stream-getting-started#step-1-register-the-connection-in-the-ui)
-
-#### Usage - Direct API
-
+### Manual Runs
 ```bash
-python run_oci_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
-```
-
-**Arguments:**
-- `--month`: Single month to process (YYYY-MM format, e.g., 2024-08)
-- `--months`: Multiple months - comma-separated (2024-06,2024-07) or range (2024-06:2024-08) 
-- `--test-connection`: Test OCI connection and exit (no data processing)
-- `--output`: Path to output CBF CSV file (default: output/oci_cbf_output.csv)
-- `--no-upload`: Skip AnyCost Stream upload prompt
-
-**Examples:**
-```bash
-# Test OCI connection
-python run_oci_adaptor.py --test-connection
-
-# Process single month
-python run_oci_adaptor.py --month 2024-08 --no-upload
+# Process specific month
+python run_oci_adaptor.py --month 2025-09
 
 # Process multiple months
-python run_oci_adaptor.py --months 2024-06,2024-07,2024-08 --no-upload
+python run_oci_adaptor.py --months 2025-08,2025-09
+
+# Dry run (don't upload)
+python run_oci_adaptor.py --month 2025-09 --dry-run
 ```
 
-#### Prerequisites for CSV Processing
-
-- Python 3.9 or newer installed
-- OCI CSV file downloaded from Oracle Cloud Console (placed in `input/` folder)
-
-#### Usage - CSV Processing
-
+### Process CSV Files
 ```bash
-python process_csv.py --input <csv-file> [--output <cbf-file>]
+# Convert OCI CSV to CloudZero format
+python src/csv_to_cbf.py --input input/oci_data.csv
 ```
 
-**Arguments:**
-- `--input`: Path to input OCI CSV file (e.g., input/oci_raw_data_2025_09.csv)
-- `--output`: Path to output CBF CSV file (default: output/cbf_from_csv.csv)
+## What It Does
 
-**Examples:**
-```bash
-# Convert CSV to CBF format
-python process_csv.py --input input/oci_raw_data_2025_09.csv
+1. Fetches OCI usage data via API
+2. Transforms to CloudZero CBF format
+3. Uploads to CloudZero AnyCost Stream
+4. Handles 5MB API limits with automatic batching
+5. Saves data to `output/` for validation
 
-# Specify custom output file  
-python process_csv.py --input input/oci_raw_data_2025_09.csv --output output/my_cbf.csv
-```
+## Documentation
 
-### Uploading Data
+- [CloudZero AnyCost Stream](https://docs.cloudzero.com/docs/anycost-stream-getting-started)
+- [OCI Usage API](https://docs.oracle.com/en-us/iaas/api/#/en/usage/20200107/)
 
-After processing the data, the script will prompt you to upload the CBF data to an AnyCost Stream connection:
+## Support
 
-1. Enter `y` if you want to upload the data.
-2. Provide your AnyCost Stream Connection ID.
-3. Enter your CloudZero API key when prompted.
-4. Choose processing mode:
-   - **Single month**: Upload data for one billing month
-   - **Batch processing**: Upload data for multiple months
-5. Specify the billing month(s):
-   - **Single month**: `2024-08`
-   - **Month range**: `2024-08:2024-10` (uploads to Aug, Sep, Oct)
-   - **Comma-separated**: `2024-08,2024-09,2024-11`
-6. Choose an operation type:
-   - **replace_drop** (default): Replace all existing data for the month
-   - **replace_hourly**: Replace data with overlapping hours  
-   - **sum**: Append data to existing records
-
-#### Batch Processing Benefits
-
-- **Time-saving**: Upload historical data for multiple months in one session
-- **Progress tracking**: See upload progress and success/failure status for each month
-- **Error resilience**: Failed uploads for individual months won't stop the entire process
-- **Flexible input**: Support for ranges, lists, or individual months
-- **Input validation**: Comprehensive error checking with helpful suggestions
-- **Retry logic**: Multiple attempts for invalid input with clear error messages
-
-#### Error Handling
-
-The script provides comprehensive error handling and validation:
-
-**Month Format Validation**:
-- Validates YYYY-MM format (e.g., "2024-08")
-- Checks for valid date ranges in batch mode
-- Provides specific error messages for invalid formats
-
-**File Processing Errors**:
-- Clear messages for missing or inaccessible CSV files
-- Validation of required CSV columns
-- Row-by-row error reporting with line numbers
-
-**Network and API Errors**:
-- Timeout handling (30-second limit per request)
-- Connection error detection
-- HTTP status code reporting with error details
-- JSON parsing error handling
-
-### Viewing Results
-
-Once uploaded, you can view the processed data within the CloudZero platform. Navigate to [Settings](https://app.cloudzero.com/organization/connections) and select your connection from the **Billing Connections** table. The **Status** of your connection will update once CloudZero processes the data.
-
-## Usage Examples
-
-To use the `anycost_example.py` script to transform the cost data to CBF, run the command as described in the [Running the Script](#running-the-script) section.
-
-## Testing
-
-This repository includes a comprehensive test suite to ensure code quality and reliability.
-
-### Running Tests
-
-1. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-2. Install test dependencies:
-   ```bash
-   pip install -r tests/requirements-dev.txt
-   ```
-
-3. Run the test suite:
-   ```bash
-   python -m pytest tests/ -v
-   ```
-
-### Test Coverage
-
-The test suite includes 11 test cases covering:
-- CSV reading and processing functions
-- Data transformation for usage, commitments, and discounts
-- CBF output generation
-- AnyCost Stream API upload functionality with mocked requests
-- All operation types (replace_drop, replace_hourly, sum)
-
-All tests use proper mocking to isolate functionality and avoid external dependencies.
-
-## Customizing for Different Cloud Providers
-
-This script can be easily adapted for different cloud providers by modifying the data processing functions:
-
-### Step-by-Step Customization
-
-1. **Identify Your Data Source**
-   ```python
-   # Replace CSV reading with API calls
-   def get_provider_data(start_date, end_date):
-       # Example: Call your provider's billing API
-       # response = provider_client.get_billing_data(start=start_date, end=end_date)
-       # return response.data
-   ```
-
-2. **Update Data Processing Functions**
-   ```python
-   def process_usage_data(raw_data):
-       # Map your provider's fields to CBF format
-       cbf_rows = []
-       for item in raw_data:
-           cbf_rows.append({
-               "lineitem/type": "Usage",
-               "resource/service": item["service_name"],        # Your field
-               "resource/id": item["resource_identifier"],      # Your field  
-               "time/usage_start": item["billing_period"],      # Your field
-               "cost/cost": str(item["total_cost"]),           # Your field
-               "cost/discounted_cost": str(item["net_cost"]),  # Your field
-           })
-       return cbf_rows
-   ```
-
-3. **Common Provider Mappings**
-
-   **AWS CUR Fields:**
-   - `lineItem/LineItemType` → `lineitem/type`
-   - `product/ProductName` → `resource/service`
-   - `lineItem/ResourceId` → `resource/id`
-   - `lineItem/UsageStartDate` → `time/usage_start`
-   - `lineItem/UnblendedCost` → `cost/cost`
-
-   **Azure Billing Fields:**
-   - `MeterCategory` → `resource/service`
-   - `InstanceId` → `resource/id`
-   - `UsageDateTime` → `time/usage_start`
-   - `ExtendedCost` → `cost/cost`
-
-   **GCP Billing Fields:**
-   - `service.description` → `resource/service`
-   - `resource.name` → `resource/id`
-   - `usage_start_time` → `time/usage_start`
-   - `cost` → `cost/cost`
-
-4. **Test Your Changes**
-   ```bash
-   python -m pytest tests/ -v
-   ```
-
-### Common Troubleshooting
-
-**Issue: "Missing required columns in CSV"**
-- Solution: Update the `required_columns` list in processing functions to match your data
-
-**Issue: "Invalid cost/discount value"**  
-- Solution: Check your provider's number format (currency symbols, decimals)
-
-**Issue: "Invalid month format"**
-- Solution: Ensure dates are in YYYY-MM format, convert if needed
-
-**Issue: "Connection timeout"**
-- Solution: Increase timeout in upload function or implement retry logic
-
-
-## Support + Feedback
-
-To submit code-level feedback, create a GitHub Issue. Direct all other questions to support@cloudzero.com.
-
-## Vulnerability Reporting
-
-Do not report security vulnerabilities on the public GitHub issue tracker. Email [security@cloudzero.com](mailto:security@cloudzero.com) instead.
-
-## What is CloudZero?
-
-CloudZero is the only cloud cost intelligence platform that puts engineering in control by connecting technical decisions to business results:
-
-- [Cost Allocation And Tagging](https://www.cloudzero.com/tour/allocation): Organize and allocate cloud spend in new ways, increase tagging coverage, or work on showback.
-- [Kubernetes Cost Visibility](https://www.cloudzero.com/tour/kubernetes): Understand your Kubernetes spend alongside total spend across containerized and non-containerized environments.
-- [FinOps And Financial Reporting](https://www.cloudzero.com/tour/finops): Operationalize reporting on metrics such as cost per customer, COGS, gross margin. Forecast spend, reconcile invoices, and easily investigate variance.
-- [Engineering Accountability](https://www.cloudzero.com/tour/engineering): Foster a cost-conscious culture, where engineers understand spend, proactively consider cost, and get immediate feedback with fewer interruptions and faster and more efficient innovation.
-- [Optimization And Reducing Waste](https://www.cloudzero.com/tour/optimization): Focus on immediately reducing spend by understanding where we have waste, inefficiencies, and discounting opportunities.
-
-Learn more about [CloudZero](https://www.cloudzero.com/) on our website [www.cloudzero.com](https://www.cloudzero.com/).
-
-## License
-
-This project is licensed under the Apache 2.0 [LICENSE](LICENSE).
+Questions: support@cloudzero.com  
+Issues: [GitHub Issues](https://github.com/jakesciotto/oracle-oci-anycost-adaptor/issues)

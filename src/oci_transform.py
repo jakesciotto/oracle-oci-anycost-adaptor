@@ -26,7 +26,8 @@ def transform_oci_to_cbf(oci_usage_items: List[Any]) -> List[Dict[str, str]]:
         
         # Handle different cost scenarios - ensure we have a valid number
         cost_value = item.computed_amount if item.computed_amount is not None else 0.0
-        cost = str(cost_value)
+        # Format as decimal to avoid scientific notation
+        cost = f"{float(cost_value):.10f}".rstrip('0').rstrip('.')
         
         # For credits and discounts, ensure negative values are handled correctly
         if float(cost) < 0:
@@ -55,7 +56,7 @@ def transform_oci_to_cbf(oci_usage_items: List[Any]) -> List[Dict[str, str]]:
             cbf_row["resource/region"] = item.region
             
         if hasattr(item, 'compartment_name') and item.compartment_name:
-            cbf_row["resource/compartment"] = item.compartment_name
+            cbf_row["resource/tag:compartment"] = item.compartment_name
             
         if hasattr(item, 'shape') and item.shape:
             cbf_row["resource/shape"] = item.shape
@@ -64,7 +65,8 @@ def transform_oci_to_cbf(oci_usage_items: List[Any]) -> List[Dict[str, str]]:
             cbf_row["billing/unit"] = item.unit
             
         if hasattr(item, 'computed_quantity') and item.computed_quantity:
-            cbf_row["usage/amount"] = str(item.computed_quantity)
+            # Format as decimal to avoid scientific notation
+            cbf_row["usage/amount"] = f"{float(item.computed_quantity):.10f}".rstrip('0').rstrip('.')
             
         # Add tags as metadata
         if hasattr(item, 'freeform_tags') and item.freeform_tags:

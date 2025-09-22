@@ -57,7 +57,8 @@ def transform_csv_to_cbf(oci_records: List[Dict[str, str]]) -> List[Dict[str, st
         except (ValueError, TypeError):
             cost_value = 0.0
         
-        cost = str(cost_value)
+        # Format as decimal to avoid scientific notation
+        cost = f"{cost_value:.10f}".rstrip('0').rstrip('.')
         
         # Determine line item type based on service and cost
         lineitem_type = determine_lineitem_type_from_csv(record, cost_value)
@@ -88,7 +89,7 @@ def transform_csv_to_cbf(oci_records: List[Dict[str, str]]) -> List[Dict[str, st
             cbf_row["resource/region"] = record['region']
             
         if record.get('compartment_name'):
-            cbf_row["resource/compartment"] = record['compartment_name']
+            cbf_row["resource/tag:compartment"] = record['compartment_name']
             
         if record.get('shape'):
             cbf_row["resource/shape"] = record['shape']
@@ -98,8 +99,9 @@ def transform_csv_to_cbf(oci_records: List[Dict[str, str]]) -> List[Dict[str, st
             
         if record.get('computed_quantity'):
             try:
-                quantity = str(float(record['computed_quantity']))
-                cbf_row["usage/amount"] = quantity
+                quantity_float = float(record['computed_quantity'])
+                # Format as decimal to avoid scientific notation
+                cbf_row["usage/amount"] = f"{quantity_float:.10f}".rstrip('0').rstrip('.')
             except (ValueError, TypeError):
                 pass
         
