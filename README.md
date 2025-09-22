@@ -13,7 +13,8 @@ This repository contains a production-ready Oracle Cloud Infrastructure (OCI) Ad
 - Support for single month and batch processing
 - Automatic data transformation from OCI format to CBF
 - Saves raw OCI data to `input/` folder for testing and validation
-- Clean project structure with organized `src/`, `env/`, and `tests/` directories
+- Saves transformed CBF data to `output/` folder 
+- Clean project structure with organized `src/`, `env/`, `tests/`, `input/`, and `output/` directories
 
 
 ## Table of Contents
@@ -178,56 +179,67 @@ The final step is for the Adaptor to send the CBF data to the AnyCost Stream con
 
 ## Running the OCI Adaptor  
 
-The OCI Adaptor fetches billing data directly from Oracle Cloud Infrastructure and uploads it to an AnyCost Stream connection. Below are the steps and usage instructions:
+The OCI Adaptor provides two main workflows:
 
-### Prerequisites
+### 1. Direct OCI API Integration
+Fetches billing data directly from Oracle Cloud Infrastructure Usage API and transforms it to CBF format:
 
-- Ensure you have Python 3.9 or newer installed.
-- Complete [OCI Configuration](#oci-configuration) with valid API credentials.
-- Create an [AnyCost Stream connection](https://docs.cloudzero.com/docs/anycost-stream-getting-started#step-1-register-the-connection-in-the-ui).
-- Have your [CloudZero API key](https://app.cloudzero.com/organization/api-keys) ready for uploading data.
+### 2. CSV Processing Workflow  
+Processes downloaded OCI CSV files and converts them to CBF format (no API keys required):
 
-### Usage
+#### Prerequisites for Direct API Integration
 
-Run the OCI adaptor from the command line:
+- Complete [OCI Configuration](#oci-configuration) with valid API credentials
+- Have your [CloudZero API key](https://app.cloudzero.com/organization/api-keys) ready for uploading data
+- Create an [AnyCost Stream connection](https://docs.cloudzero.com/docs/anycost-stream-getting-started#step-1-register-the-connection-in-the-ui)
+
+#### Usage - Direct API
 
 ```bash
 python run_oci_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
 ```
 
-### Arguments
-
+**Arguments:**
 - `--month`: Single month to process (YYYY-MM format, e.g., 2024-08)
 - `--months`: Multiple months - comma-separated (2024-06,2024-07) or range (2024-06:2024-08) 
 - `--test-connection`: Test OCI connection and exit (no data processing)
-- `--output`: Path to output CBF CSV file (default: oci_cbf_output.csv)
+- `--output`: Path to output CBF CSV file (default: output/oci_cbf_output.csv)
 - `--no-upload`: Skip AnyCost Stream upload prompt
 
-### Examples
-
-**Process single month:**
+**Examples:**
 ```bash
-python run_oci_adaptor.py --month 2024-08
-```
-
-**Process multiple months (comma-separated):**
-```bash
-python run_oci_adaptor.py --months 2024-06,2024-07,2024-08
-```
-
-**Process month range:**
-```bash
-python run_oci_adaptor.py --months 2024-06:2024-08
-```
-
-**Test connection only:**
-```bash
+# Test OCI connection
 python run_oci_adaptor.py --test-connection
+
+# Process single month
+python run_oci_adaptor.py --month 2024-08 --no-upload
+
+# Process multiple months
+python run_oci_adaptor.py --months 2024-06,2024-07,2024-08 --no-upload
 ```
 
-**Process data without upload prompt:**
+#### Prerequisites for CSV Processing
+
+- Python 3.9 or newer installed
+- OCI CSV file downloaded from Oracle Cloud Console (placed in `input/` folder)
+
+#### Usage - CSV Processing
+
 ```bash
-python run_oci_adaptor.py --month 2024-08 --no-upload --output my_oci_data.csv
+python process_csv.py --input <csv-file> [--output <cbf-file>]
+```
+
+**Arguments:**
+- `--input`: Path to input OCI CSV file (e.g., input/oci_raw_data_2025_09.csv)
+- `--output`: Path to output CBF CSV file (default: output/cbf_from_csv.csv)
+
+**Examples:**
+```bash
+# Convert CSV to CBF format
+python process_csv.py --input input/oci_raw_data_2025_09.csv
+
+# Specify custom output file  
+python process_csv.py --input input/oci_raw_data_2025_09.csv --output output/my_cbf.csv
 ```
 
 ### Uploading Data

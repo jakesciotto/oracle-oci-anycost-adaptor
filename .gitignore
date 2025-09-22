@@ -150,3 +150,6 @@ oci_cbf_output.csv
 
 # Input data files
 input/
+
+# Output data files
+output/

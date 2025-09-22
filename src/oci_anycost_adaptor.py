@@ -21,6 +21,7 @@ When uploading to AnyCost Stream:
 import csv
 import getpass
 import json
+import os
 import sys
 import argparse
 from datetime import datetime
@@ -30,7 +31,8 @@ import requests
 
 from oci_usage import fetch_oci_monthly_usage, test_oci_connection
 from oci_transform import process_oci_usage_data
-from cloudzero_upload import upload_to_anycost, parse_month_range
+from cloudzero_upload import parse_month_range
+from cloudzero_client import upload_cbf_to_cloudzero
 import csv
 
 # Check for Python version 3.9 or newer
@@ -198,13 +200,24 @@ Examples:
     
     parser.add_argument(
         "--output", 
-        default="oci_cbf_output.csv",
-        help="Path to output CBF CSV file (default: oci_cbf_output.csv)"
+        default="output/oci_cbf_output.csv",
+        help="Path to output CBF CSV file (default: output/oci_cbf_output.csv)"
     )
     parser.add_argument(
         "--no-upload",
         action="store_true",
-        help="Skip AnyCost Stream upload prompt"
+        help="Skip AnyCost Stream upload"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Prepare upload request but don't actually send it (for testing)"
+    )
+    parser.add_argument(
+        "--operation",
+        choices=["replace_drop", "replace_hourly", "sum"],
+        default="replace_drop",
+        help="Upload operation type (default: replace_drop)"
     )
     
     args = parser.parse_args()
@@ -248,6 +261,11 @@ Examples:
         # Write CBF data to file with dynamic fieldnames
         print(f"\n✓ Writing {len(cbf_rows)} CBF records to: {args.output}")
         
+        # Create output directory if it doesn't exist
+        output_dir = os.path.dirname(args.output)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
         # Get all unique field names from all rows
         all_fieldnames = set()
         for row in cbf_rows:
@@ -264,11 +282,31 @@ Examples:
         print(f"  Total records: {len(cbf_rows)}")
         print(f"  Fields: {len(fieldnames)}")
         
-        # Upload to AnyCost Stream if requested
+        # Upload to CloudZero AnyCost Stream if requested
         if not args.no_upload:
-            should_upload = input("\nWould you like to upload the CBF data to an AnyCost Stream connection? (y/n): ")
-            if should_upload.lower() == "y":
-                upload_to_anycost(cbf_rows)
+            try:
+                # Determine the billing month from the processed months
+                billing_month = months[0] if len(months) == 1 else months[0]  # Use first month for multi-month
+                
+                print(f"\n🚀 Uploading to CloudZero AnyCost Stream...")
+                upload_result = upload_cbf_to_cloudzero(
+                    cbf_rows=cbf_rows,
+                    month=billing_month,
+                    operation=args.operation,
+                    dry_run=args.dry_run
+                )
+                
+                if upload_result.get('dry_run'):
+                    print(f"✅ Dry run completed - upload request prepared but not sent")
+                    print(f"   To perform actual upload, run without --dry-run flag")
+                elif upload_result.get('success'):
+                    print(f"✅ Successfully uploaded {upload_result['records_uploaded']} records to CloudZero")
+                else:
+                    print(f"❌ Upload failed")
+                    
+            except Exception as e:
+                print(f"❌ Upload error: {e}")
+                print(f"   Data saved to {args.output} - you can retry upload later")
         
     except KeyboardInterrupt:
         print("\n\nOperation cancelled by user.")
