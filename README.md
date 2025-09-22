@@ -12,6 +12,8 @@ This repository contains a production-ready Oracle Cloud Infrastructure (OCI) Ad
 - Comprehensive error handling and retry logic
 - Support for single month and batch processing
 - Automatic data transformation from OCI format to CBF
+- Saves raw OCI data to `input/` folder for testing and validation
+- Clean project structure with organized `src/`, `env/`, and `tests/` directories
 
 
 ## Table of Contents
@@ -108,7 +110,7 @@ OCI_REGION=us-ashburn-1
 Test your OCI configuration:
 
 ```bash
-python oci_anycost_adaptor.py --test-connection
+python run_oci_adaptor.py --test-connection
 ```
 
 ## Getting Started
@@ -190,7 +192,7 @@ The OCI Adaptor fetches billing data directly from Oracle Cloud Infrastructure a
 Run the OCI adaptor from the command line:
 
 ```bash
-python oci_anycost_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
+python run_oci_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
 ```
 
 ### Arguments
@@ -205,27 +207,27 @@ python oci_anycost_adaptor.py --month <YYYY-MM> [--output <path>] [--no-upload]
 
 **Process single month:**
 ```bash
-python oci_anycost_adaptor.py --month 2024-08
+python run_oci_adaptor.py --month 2024-08
 ```
 
 **Process multiple months (comma-separated):**
 ```bash
-python oci_anycost_adaptor.py --months 2024-06,2024-07,2024-08
+python run_oci_adaptor.py --months 2024-06,2024-07,2024-08
 ```
 
 **Process month range:**
 ```bash
-python oci_anycost_adaptor.py --months 2024-06:2024-08
+python run_oci_adaptor.py --months 2024-06:2024-08
 ```
 
 **Test connection only:**
 ```bash
-python oci_anycost_adaptor.py --test-connection
+python run_oci_adaptor.py --test-connection
 ```
 
 **Process data without upload prompt:**
 ```bash
-python oci_anycost_adaptor.py --month 2024-08 --no-upload --output my_oci_data.csv
+python run_oci_adaptor.py --month 2024-08 --no-upload --output my_oci_data.csv
 ```
 
 ### Uploading Data

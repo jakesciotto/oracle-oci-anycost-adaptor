@@ -30,7 +30,7 @@ import requests
 
 from oci_usage import fetch_oci_monthly_usage, test_oci_connection
 from oci_transform import process_oci_usage_data
-from anycost_example import upload_to_anycost, parse_month_range
+from cloudzero_upload import upload_to_anycost, parse_month_range
 import csv
 
 # Check for Python version 3.9 or newer
@@ -38,13 +38,14 @@ if sys.version_info < (3, 9):
     sys.exit("This script requires Python 3.9 or newer.")
 
 
-def fetch_and_process_oci_data(year: int, month: int) -> List[Dict[str, str]]:
+def fetch_and_process_oci_data(year: int, month: int, save_raw_data: bool = True) -> List[Dict[str, str]]:
     """
     Fetch OCI usage data for a month and transform to CBF format.
     
     Args:
         year: Year (e.g., 2024)
         month: Month (1-12)
+        save_raw_data: Whether to save raw OCI data to input/ folder
         
     Returns:
         CBF-formatted rows
@@ -59,6 +60,10 @@ def fetch_and_process_oci_data(year: int, month: int) -> List[Dict[str, str]]:
             print(f"No usage data found for {year}-{month:02d}")
             return []
         
+        # Save raw OCI data to input folder if requested
+        if save_raw_data:
+            save_raw_oci_data(oci_usage_items, year, month)
+        
         # Transform to CBF format
         cbf_rows = process_oci_usage_data(oci_usage_items)
         
@@ -67,6 +72,65 @@ def fetch_and_process_oci_data(year: int, month: int) -> List[Dict[str, str]]:
     except Exception as e:
         print(f"Error fetching OCI data for {year}-{month:02d}: {e}")
         raise
+
+
+def save_raw_oci_data(oci_usage_items: List[Any], year: int, month: int):
+    """
+    Save raw OCI usage data to input folder as CSV.
+    
+    Args:
+        oci_usage_items: Raw OCI usage API response items
+        year: Year (e.g., 2024)
+        month: Month (1-12)
+    """
+    import os
+    
+    # Create input directory if it doesn't exist
+    input_dir = "input"
+    if not os.path.exists(input_dir):
+        os.makedirs(input_dir)
+    
+    # Generate filename with timestamp
+    filename = f"oci_raw_data_{year}_{month:02d}.csv"
+    filepath = os.path.join(input_dir, filename)
+    
+    print(f"Saving raw OCI data to {filepath}...")
+    
+    # Extract fields from first item to determine CSV structure
+    if not oci_usage_items:
+        return
+        
+    # Get all possible fields from the first few items
+    all_fields = set()
+    for item in oci_usage_items[:10]:  # Sample first 10 items for field discovery
+        for attr in dir(item):
+            if not attr.startswith('_') and not callable(getattr(item, attr, None)):
+                all_fields.add(attr)
+    
+    fieldnames = sorted(list(all_fields))
+    
+    # Write CSV with raw OCI data
+    with open(filepath, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for item in oci_usage_items:
+            row = {}
+            for field in fieldnames:
+                value = getattr(item, field, None)
+                # Convert complex objects to string representation
+                if value is not None:
+                    if hasattr(value, 'strftime'):  # datetime objects
+                        row[field] = value.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                    elif isinstance(value, (dict, list)):
+                        row[field] = str(value)
+                    else:
+                        row[field] = str(value)
+                else:
+                    row[field] = ''
+            writer.writerow(row)
+    
+    print(f"✓ Saved {len(oci_usage_items)} raw records to {filepath}")
 
 
 def process_multiple_months(months: List[str]) -> List[Dict[str, str]]:

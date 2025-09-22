@@ -5,10 +5,13 @@ Test the OCI adaptor with mock data to verify the transformation pipeline works.
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
 from datetime import datetime
 from oci_mock_data import get_mock_monthly_usage_data
+
+# Import from src directory
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 from oci_transform import process_oci_usage_data
 import csv
 

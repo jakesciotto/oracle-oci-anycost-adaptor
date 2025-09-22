@@ -13,7 +13,10 @@ from typing import Dict, Optional
 # Load environment variables from .env file
 def load_env_file():
     """Load environment variables from .env file if it exists."""
-    env_file = 'env/.env'
+    # Look for .env file relative to the project root
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)  # Go up one level from src/
+    env_file = os.path.join(project_root, 'env', '.env')
     if os.path.exists(env_file):
         with open(env_file, 'r') as f:
             for line in f:

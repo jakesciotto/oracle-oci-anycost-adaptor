@@ -147,3 +147,6 @@ oci_config_local.py
 # Test output files
 tests/*.csv
 oci_cbf_output.csv
+
+# Input data files
+input/
