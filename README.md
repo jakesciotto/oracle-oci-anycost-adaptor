@@ -23,6 +23,7 @@ This repository contains a production-ready Oracle Cloud Infrastructure (OCI) Ad
 - [Installation](#installation)  
 - [OCI Configuration](#oci-configuration)
 - [Getting Started](#getting-started)
+- [Daily Automation](#daily-automation)
 - [Running the OCI Adaptor](#running-the-oci-adaptor)
 - [Usage Examples](#usage-examples)
 - [Testing](#testing)
@@ -176,6 +177,35 @@ This example Adaptor takes the following actions:
 ### Step 3: Send the CBF Data to CloudZero
 
 The final step is for the Adaptor to send the CBF data to the AnyCost Stream connection using CloudZero's [/v2/connections/billing/anycost/{connection_id}/billing_drops](https://docs.cloudzero.com/reference/createoneanycoststreamconnectionbillingdrop) API.
+
+## Daily Automation
+
+For production environments, use the simplified daily automation script:
+
+### Quick Start for Daily Sync
+
+```bash
+# Run daily sync (processes yesterday's data automatically)
+./daily_sync.py
+
+# Test the setup (dry run)
+./daily_sync.py --test
+```
+
+### Set Up Automated Daily Runs
+
+Add to your crontab for daily execution at 8 AM:
+```bash
+crontab -e
+# Add this line:
+0 8 * * * cd /path/to/oracle-oci-anycost-adaptor && ./daily_sync.py
+```
+
+The daily sync script automatically:
+- Fetches OCI usage data for the current month
+- Transforms it to CBF format 
+- Uploads to CloudZero AnyCost Stream
+- Saves data to `output/oci_cbf_output.csv` for validation
 
 ## Running the OCI Adaptor  
 

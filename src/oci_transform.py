@@ -64,7 +64,7 @@ def transform_oci_to_cbf(oci_usage_items: List[Any]) -> List[Dict[str, str]]:
             cbf_row["billing/unit"] = item.unit
             
         if hasattr(item, 'computed_quantity') and item.computed_quantity:
-            cbf_row["billing/quantity"] = str(item.computed_quantity)
+            cbf_row["usage/amount"] = str(item.computed_quantity)
             
         # Add tags as metadata
         if hasattr(item, 'freeform_tags') and item.freeform_tags:

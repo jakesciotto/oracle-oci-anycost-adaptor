@@ -99,7 +99,7 @@ def transform_csv_to_cbf(oci_records: List[Dict[str, str]]) -> List[Dict[str, st
         if record.get('computed_quantity'):
             try:
                 quantity = str(float(record['computed_quantity']))
-                cbf_row["billing/quantity"] = quantity
+                cbf_row["usage/amount"] = quantity
             except (ValueError, TypeError):
                 pass
         
@@ -110,10 +110,10 @@ def transform_csv_to_cbf(oci_records: List[Dict[str, str]]) -> List[Dict[str, st
                 tags_str = record['tags']
                 if tags_str and tags_str != 'null' and not tags_str.startswith('[{'):
                     # Simple key-value tags
-                    cbf_row["tag/source"] = "oci-csv"
+                    pass
                 elif tags_str.startswith('[{'):
                     # Complex JSON tags - extract meaningful info
-                    cbf_row["tag/source"] = "oci-csv"
+                    pass
             except:
                 pass  # Skip malformed tags
         
