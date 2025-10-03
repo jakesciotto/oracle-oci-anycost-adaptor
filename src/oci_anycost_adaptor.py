@@ -31,8 +31,7 @@ import requests
 
 from oci_usage import fetch_oci_monthly_usage, test_oci_connection
 from oci_transform import process_oci_usage_data
-from cloudzero_upload import parse_month_range
-from cloudzero_client import upload_cbf_to_cloudzero
+from cloudzero import parse_month_range, upload_cbf_to_cloudzero
 import csv
 
 # Check for Python version 3.9 or newer

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-CloudZero AnyCost Stream client for uploading CBF data.
-This module handles authentication and data upload to CloudZero.
+CloudZero AnyCost Stream client - Consolidated module for uploading CBF data.
+This module handles authentication, data upload, and batch processing.
 """
 
 import os
 import json
 import requests
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -71,7 +72,7 @@ class CloudZeroClient:
     def upload_billing_data(self, cbf_rows: List[Dict[str, str]], 
                           month: str, 
                           operation: str = "replace_drop",
-                          dry_run: bool = True) -> Dict[str, Any]:
+                          dry_run: bool = False) -> Dict[str, Any]:
         """
         Upload CBF data to CloudZero AnyCost Stream.
         
@@ -266,10 +267,69 @@ class CloudZeroClient:
             return False
 
 
+def parse_month_range(month_input: str) -> List[str]:
+    """Parse month input and return list of months.
+    
+    Supports:
+    - Single month: "2024-08"
+    - Month range: "2024-08:2024-10" (inclusive)
+    - Comma-separated: "2024-08,2024-09,2024-11"
+    """
+    if not month_input or not month_input.strip():
+        raise ValueError("Month input cannot be empty")
+    
+    month_pattern = re.compile(r'^\d{4}-\d{2}$')
+    
+    if ':' in month_input:
+        # Handle range format: "2024-08:2024-10"
+        parts = month_input.split(':')
+        if len(parts) != 2:
+            raise ValueError("Month range must have exactly one ':' separator")
+        
+        start_str, end_str = parts
+        start_str, end_str = start_str.strip(), end_str.strip()
+        
+        if not month_pattern.match(start_str) or not month_pattern.match(end_str):
+            raise ValueError("Month format must be YYYY-MM (e.g., '2024-08')")
+        
+        try:
+            start_date = datetime.strptime(start_str + "-01", "%Y-%m-%d")
+            end_date = datetime.strptime(end_str + "-01", "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError(f"Invalid date format: {e}")
+        
+        if start_date > end_date:
+            raise ValueError("Start month cannot be after end month")
+        
+        months = []
+        current = start_date
+        while current <= end_date:
+            months.append(current.strftime("%Y-%m"))
+            # Move to next month
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+        return months
+    elif ',' in month_input:
+        # Handle comma-separated format: "2024-08,2024-09,2024-11"
+        months = [month.strip() for month in month_input.split(',')]
+        for month in months:
+            if not month_pattern.match(month):
+                raise ValueError(f"Invalid month format '{month}'. Must be YYYY-MM (e.g., '2024-08')")
+        return months
+    else:
+        # Single month
+        month = month_input.strip()
+        if not month_pattern.match(month):
+            raise ValueError(f"Invalid month format '{month}'. Must be YYYY-MM (e.g., '2024-08')")
+        return [month]
+
+
 def upload_cbf_to_cloudzero(cbf_rows: List[Dict[str, str]], 
                            month: str,
                            operation: str = "replace_drop",
-                           dry_run: bool = True) -> Dict[str, Any]:
+                           dry_run: bool = False) -> Dict[str, Any]:
     """
     Convenience function to upload CBF data to CloudZero.
     

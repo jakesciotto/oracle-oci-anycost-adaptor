@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(current_dir, 'src')
 sys.path.insert(0, src_dir)
 
-from cloudzero_client import CloudZeroClient
+from cloudzero import CloudZeroClient
 
 if __name__ == "__main__":
     print("🔍 Testing CloudZero AnyCost Stream connection...")

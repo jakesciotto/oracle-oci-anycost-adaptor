@@ -16,7 +16,7 @@ os.environ['CLOUDZERO_API_KEY'] = 'test_api_key_placeholder'
 os.environ['CLOUDZERO_CONNECTION_ID'] = 'acedd206-ad47-468a-b731-b326d0695bde'
 os.environ['CLOUDZERO_API_URL'] = 'https://api.cloudzero.com'
 
-from cloudzero_client import upload_cbf_to_cloudzero
+from cloudzero import upload_cbf_to_cloudzero
 
 # Create a small sample of CBF data (just a day's worth)
 sample_cbf_data = [
