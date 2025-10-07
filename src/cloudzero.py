@@ -129,9 +129,19 @@ class CloudZeroClient:
             if dry_run:
                 print(f"🔍 DRY RUN: {len(batches)} batch requests prepared but not sent")
                 for i, batch in enumerate(batches, 1):
-                    batch_payload = {"month": month, "operation": operation, "data": batch}
+                    # First batch uses original operation, subsequent batches use "sum"
+                    batch_operation = operation if i == 1 else "sum"
+                    batch_payload = {"month": month, "operation": batch_operation, "data": batch}
                     batch_size = self._calculate_payload_size(batch_payload)
-                    print(f"   Batch {i}: {len(batch)} records, {batch_size} bytes ({batch_size / (1024*1024):.1f}MB)")
+                    # Calculate cost for this batch
+                    batch_cost = 0
+                    for row in batch:
+                        if 'cost/cost' in row and row['cost/cost']:
+                            try:
+                                batch_cost += float(row['cost/cost'])
+                            except (ValueError, TypeError):
+                                pass
+                    print(f"   Batch {i}: {len(batch)} records, {batch_size} bytes ({batch_size / (1024*1024):.1f}MB), ${batch_cost:,.2f}, operation: {batch_operation}")
                 return {
                     "dry_run": True,
                     "url": url,
@@ -144,8 +154,10 @@ class CloudZeroClient:
                 # Upload each batch
                 results = []
                 for i, batch in enumerate(batches, 1):
-                    print(f"\n🚀 Uploading batch {i}/{len(batches)} ({len(batch)} records)...")
-                    result = self._upload_single_batch(batch, month, operation, url, headers)
+                    # First batch uses original operation, subsequent batches use "sum" to add data
+                    batch_operation = operation if i == 1 else "sum"
+                    print(f"\n🚀 Uploading batch {i}/{len(batches)} ({len(batch)} records, operation: {batch_operation})...")
+                    result = self._upload_single_batch(batch, month, batch_operation, url, headers)
                     results.append(result)
                     if not result["success"]:
                         print(f"❌ Batch {i} failed, stopping upload")
@@ -178,6 +190,17 @@ class CloudZeroClient:
         
     def _upload_single_batch(self, cbf_rows: List[Dict[str, str]], month: str, operation: str, url: str, headers: Dict[str, str]) -> Dict[str, Any]:
         """Upload a single batch of CBF data."""
+        # Validate cost totals before upload
+        batch_cost = 0
+        for row in cbf_rows:
+            if 'cost/cost' in row and row['cost/cost']:
+                try:
+                    batch_cost += float(row['cost/cost'])
+                except (ValueError, TypeError):
+                    print(f"⚠️  Invalid cost value: {row['cost/cost']}")
+        
+        print(f"💰 Batch cost validation: ${batch_cost:,.2f} for {len(cbf_rows)} records")
+        
         payload = {
             "month": month,
             "operation": operation,

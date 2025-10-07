@@ -119,14 +119,28 @@ def save_raw_oci_data(oci_usage_items: List[Any], year: int, month: int):
             row = {}
             for field in fieldnames:
                 value = getattr(item, field, None)
-                # Convert complex objects to string representation
+                # Extract actual values instead of converting objects to strings
                 if value is not None:
                     if hasattr(value, 'strftime'):  # datetime objects
-                        row[field] = value.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                        row[field] = value.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    elif isinstance(value, (int, float)):  # numeric values
+                        row[field] = str(value)
+                    elif isinstance(value, str):  # string values
+                        row[field] = value
                     elif isinstance(value, (dict, list)):
-                        row[field] = str(value)
+                        # Skip complex objects that cause CSV corruption
+                        row[field] = ''
                     else:
-                        row[field] = str(value)
+                        # For other object types, try to get the actual value
+                        try:
+                            # If it's a simple value, convert to string
+                            if hasattr(value, '__str__') and not hasattr(value, '__dict__'):
+                                row[field] = str(value)
+                            else:
+                                # Skip complex objects
+                                row[field] = ''
+                        except:
+                            row[field] = ''
                 else:
                     row[field] = ''
             writer.writerow(row)

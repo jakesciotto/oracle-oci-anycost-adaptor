@@ -144,14 +144,14 @@ def format_usage_time(usage_time: datetime) -> str:
         usage_time: DateTime object
         
     Returns:
-        ISO 8601 formatted string
+        ISO 8601 formatted string without microseconds
     """
     if isinstance(usage_time, datetime):
-        return usage_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        return usage_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     elif isinstance(usage_time, str):
         return usage_time
     else:
-        return datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def process_oci_usage_data(oci_usage_items: List[Any]) -> List[Dict[str, str]]:

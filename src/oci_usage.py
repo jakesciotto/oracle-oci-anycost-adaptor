@@ -5,6 +5,7 @@ OCI Usage API integration for fetching cost and usage data.
 
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+import time
 import oci
 from oci.usage_api import models as usage_models
 from oci_config import get_usage_client, get_identity_client
@@ -72,8 +73,82 @@ def fetch_oci_usage_data(start_date: datetime, end_date: datetime,
     )
     
     try:
-        response = usage_client.request_summarized_usages(request)
-        return response.data.items
+        # DEBUG: Log API request parameters
+        print(f"📝 OCI API Request Parameters:")
+        print(f"   Date range: {start_date} to {end_date}")
+        print(f"   Granularity: {granularity}")
+        print(f"   Group by: {request.group_by}")
+        print(f"   Compartment depth: {request.compartment_depth}")
+        
+        all_items = []
+        page_num = 1
+        page_token = None
+        
+        while True:
+            print(f"🔄 Fetching page {page_num}...")
+            
+            # Add retry logic for rate limits
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # Make API call with pagination
+                    response = usage_client.request_summarized_usages(
+                        request, 
+                        page=page_token,
+                        limit=1000  # Max items per page
+                    )
+                    break  # Success, exit retry loop
+                    
+                except oci.exceptions.ServiceError as e:
+                    if e.status == 429:  # Rate limit exceeded
+                        if attempt < max_retries - 1:
+                            wait_time = (2 ** attempt) * 5  # Exponential backoff: 5s, 10s, 20s
+                            print(f"⏸️  Rate limit hit (429). Waiting {wait_time}s before retry {attempt + 2}/{max_retries}...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            print(f"❌ Rate limit exceeded after {max_retries} retries")
+                            raise
+                    elif e.status == 500:  # Server error
+                        if attempt < max_retries - 1:
+                            wait_time = 5
+                            print(f"⏸️  Server error (500). Waiting {wait_time}s before retry {attempt + 2}/{max_retries}...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            raise
+                    else:
+                        # Other service errors - don't retry
+                        raise
+            
+            page_items = response.data.items
+            all_items.extend(page_items)
+            
+            print(f"   Page {page_num}: {len(page_items)} records")
+            
+            # Add small delay between pages to be respectful to API
+            if page_num > 1:
+                time.sleep(1)
+            
+            # Check if there are more pages
+            if hasattr(response, 'opc_next_page') and response.opc_next_page:
+                page_token = response.opc_next_page
+                page_num += 1
+            else:
+                break
+        
+        print(f"✅ Total records retrieved: {len(all_items)}")
+        
+        # DEBUG: Calculate total cost for verification
+        total_cost = 0
+        for item in all_items:
+            if hasattr(item, 'computed_amount') and item.computed_amount:
+                total_cost += float(item.computed_amount)
+        
+        print(f"💰 Total cost: ${total_cost:,.2f}")
+        
+        return all_items
+        
     except oci.exceptions.ServiceError as e:
         print(f"OCI API Error: {e.code} - {e.message}")
         raise
